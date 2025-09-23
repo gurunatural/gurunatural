@@ -28,7 +28,8 @@ const productSchema = new mongoose.Schema({
   images: [String], // For variant products
   variants: [{
     size: String,
-    price: Number
+    price: Number,
+    image: String // <-- NEW: Image for specific variant
   }]
 });
 
