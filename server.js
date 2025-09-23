@@ -4,32 +4,42 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
 // 2. Initialize Express App
 const app = express();
 
 // 3. Middleware
-app.use(cors()); // Allows your frontend to communicate with this backend
-app.use(express.json({ limit: '50mb' })); // Parses incoming JSON requests and increases payload limit for images
+app.use(cors()); 
+// Set a higher limit for image uploads, but not for regular JSON
+app.use(express.json({ limit: '50mb' })); 
 
-// 4. Connect to MongoDB
+// 4. Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+
+// 5. Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Successfully connected to MongoDB.'))
   .catch(err => console.error('Connection error:', err));
 
-// 5. Mongoose Schema and Model
+// 6. Mongoose Schema and Model
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
   description: String,
   price: Number,
-  img: String, // For simple products
-  images: [String], // For variant products
+  img: String, 
+  images: [String], 
   variants: [{
     size: String,
     price: Number,
-    image: String // <-- NEW: Image for specific variant
+    image: String 
   }]
 });
 
@@ -43,7 +53,7 @@ app.get('/api/products', async (req, res) => {
     const products = await Product.find({});
     res.json(products);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch products: ' + error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -54,7 +64,7 @@ app.post('/api/products', async (req, res) => {
     const newProduct = await product.save();
     res.status(201).json(newProduct);
   } catch (error) {
-    res.status(400).json({ message: 'Failed to add product: ' + error.message });
+    res.status(400).json({ message: error.message });
   }
 });
 
@@ -67,7 +77,7 @@ app.put('/api/products/:id', async (req, res) => {
         }
         res.json(updatedProduct);
     } catch (error) {
-        res.status(400).json({ message: 'Failed to update product: ' + error.message });
+        res.status(400).json({ message: error.message });
     }
 });
 
@@ -80,12 +90,26 @@ app.delete('/api/products/:id', async (req, res) => {
     }
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete product: ' + error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 
+// NEW: POST to upload an image to Cloudinary
+app.post('/api/upload', async (req, res) => {
+    try {
+        const fileStr = req.body.data;
+        const uploadResponse = await cloudinary.uploader.upload(fileStr, {
+            upload_preset: 'ml_default', // ml_default is a generic preset, you can create your own
+        });
+        res.json({ url: uploadResponse.secure_url });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ err: 'Something went wrong' });
+    }
+});
 
-// 6. Start the server
+
+// 7. Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
