@@ -186,7 +186,8 @@ app.put('/api/products/:id', upload.any(), async (req, res) => {
 // DELETE a product by ID
 app.delete('/api/products/:id', async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(.params.id);
+    const product = await Product.findByIdAndDelete(req.params.id);
+;
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -202,3 +203,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
