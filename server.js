@@ -5,7 +5,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cloudinary = require('cloudinary').v2;
-const multer = require('multer'); // <-- ADD THIS
+const multer = require('multer');
 require('dotenv').config();
 
 // 2. Initialize Express App
@@ -29,7 +29,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Successfully connected to MongoDB.'))
   .catch(err => console.error('Connection error:', err));
 
-// 6. Mongoose Schema and Model (Your schema is perfect, no changes needed)
+// 6. Mongoose Schema and Model
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
@@ -74,7 +74,7 @@ const uploadToCloudinary = (fileBuffer) => {
 
 // --- API ROUTES ---
 
-// GET all products (No changes needed here)
+// GET all products
 app.get('/api/products', async (req, res) => {
   try {
     const products = await Product.find({});
@@ -84,10 +84,24 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// =================================================================================
+// *** ADDED: The missing route to get all unique categories ***
+// =================================================================================
+app.get('/api/categories', async (req, res) => {
+  try {
+    // Find all unique category strings in the Product collection
+    const categories = await Product.distinct('category');
+    // The frontend expects an array of objects with a 'name' key
+    const categoryObjects = categories.map(name => ({ name }));
+    res.json(categoryObjects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+// =================================================================================
 
-// =================================================================================
-// *** REPLACED: The POST route now uses Multer and uploads to Cloudinary ***
-// =================================================================================
+
+// POST a new product
 app.post('/api/products', upload.any(), async (req, res) => {
     try {
         // Text fields from the form are in req.body
@@ -124,7 +138,6 @@ app.post('/api/products', upload.any(), async (req, res) => {
             images: mainImageUrls,
             price: variants.length > 0 ? undefined : price,
             variants: variants.length > 0 ? variants : undefined,
-            // The 'img' field from your schema is now replaced by the 'images' array
         });
 
         await newProduct.save();
@@ -137,9 +150,7 @@ app.post('/api/products', upload.any(), async (req, res) => {
 });
 
 
-// =================================================================================
-// *** REPLACED: The PUT route also now handles file uploads for updates ***
-// =================================================================================
+// UPDATE a product by ID
 app.put('/api/products/:id', upload.any(), async (req, res) => {
     try {
         const { name, category, description, price } = req.body;
@@ -162,53 +173,3 @@ app.put('/api/products/:id', upload.any(), async (req, res) => {
                     // This new image replaces the old one for this variant
                     variants[variantIndex].image = result.secure_url;
                 }
-            }
-        });
-
-        // Construct the final update object for MongoDB
-        const updatedProductData = {
-            name,
-            category,
-            description,
-            images: existingImages, // The final list of main images (old + new)
-            price: variants.length > 0 ? undefined : price,
-            variants: variants.length > 0 ? variants : undefined
-        };
-
-        const updatedProduct = await Product.findByIdAndUpdate(req.params.id, updatedProductData, { new: true });
-
-        if (!updatedProduct) {
-            return res.status(404).json({ message: "Product not found." });
-        }
-
-        res.status(200).json(updatedProduct);
-
-    } catch (error) {
-        console.error('Error updating product:', error);
-        res.status(500).json({ message: 'Server error while updating product.' });
-    }
-});
-
-
-// DELETE a product by ID (No changes needed here)
-app.delete('/api/products/:id', async (req, res) => {
-  try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-    res.json({ message: 'Product deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-
-// *** REMOVED: The old '/api/upload' route is no longer needed. ***
-
-
-// 7. Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
